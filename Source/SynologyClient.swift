@@ -262,6 +262,43 @@ extension SynologyClient {
         }
     }
     
+    public func updateHostPortViaQuickID(_ quickID: String, completion: @escaping (Result<(host: String, port: Int), SynologyError>) -> Void) {
+        getGlobalServerInfo(quickID: quickID) { response in
+            switch response {
+            case .success(let connect):
+                if let inter = connect.server?.interface?.first, let p = connect.service?.port,
+                   let relayIP = connect.service?.relayIP, let relayPort = connect.service?.relayPort {
+                    self.host = inter.ip
+                    self.port = p
+                    completion(.success((host: inter.ip, port: p)))
+                } else if let h = connect.service?.relayIP, let p = connect.service?.relayPort {
+                    self.host = h
+                    self.port = p
+                    completion(.success((host: h, port: p)))
+                } else if let controlHost = connect.env?.controlHost {
+                    self.getServerInfo(server: controlHost, quickID: quickID) { quickIDRes in
+                        switch quickIDRes {
+                        case .success(let connectResponse):
+                            if let h = connectResponse.service?.relayIP, let p = connectResponse.service?.relayPort {
+                                self.host = h
+                                self.port = p
+                                completion(.success((host: h, port: p)))
+                            } else {
+                                completion(.failure(.unknownError))
+                            }
+                        case .failure(let error):
+                            completion(.failure(error))
+                        }
+                    }
+                } else {
+                    completion(.failure(.unknownError))
+                }
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
     /// Logout
     /// - Parameters:
     ///   - completion: Callback closure.
