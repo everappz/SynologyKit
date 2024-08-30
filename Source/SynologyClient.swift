@@ -91,6 +91,12 @@ public class SynologyClient {
         }
     }
     
+    public func cancelAllRequests() {
+        queue.async {
+            self.session.cancelAllRequests()
+        }
+    }
+    
     func getStreamData(_ request: SynologyRequest, completion: @escaping SynologyStreamCompletion) {
         var actualRequest = request
         if let sessionId = sessionid {
