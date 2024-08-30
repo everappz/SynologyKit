@@ -198,12 +198,33 @@ extension SynologyClient {
         }
     }
     
+    public func updateSession(configuration: URLSessionConfiguration = URLSessionConfiguration.af.default, allowInsecureConnection: Bool = false) {
+        if allowInsecureConnection {
+            self.session = makeInSecureSession(configuration: configuration)
+        }
+        else {
+            self.session = makeDefaultSession(configuration: configuration)
+        }
+    }
+    
     private func makeInSecureSession() -> Alamofire.Session {
         guard let url = URL(string: baseURLString()), let host = url.host else {
             return .default
         }
         let trustManager = ServerTrustManager(evaluators: [host: DisabledTrustEvaluator()])
         return Alamofire.Session(serverTrustManager: trustManager)
+    }
+    
+    private func makeInSecureSession(configuration: URLSessionConfiguration = URLSessionConfiguration.af.default) -> Alamofire.Session {
+        guard let url = URL(string: baseURLString()), let host = url.host else {
+            return .default
+        }
+        let trustManager = ServerTrustManager(evaluators: [host: DisabledTrustEvaluator()])
+        return Alamofire.Session(configuration: configuration, serverTrustManager: trustManager)
+    }
+    
+    private func makeDefaultSession(configuration: URLSessionConfiguration = URLSessionConfiguration.af.default) -> Alamofire.Session {
+        return Alamofire.Session(configuration: configuration)
     }
     
     // try inner login first
