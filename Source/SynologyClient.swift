@@ -268,13 +268,28 @@ extension SynologyClient {
             case .success(let connect):
                 if let inter = connect.server?.interface?.first, let p = connect.service?.port,
                    let relayIP = connect.service?.relayIP, let relayPort = connect.service?.relayPort {
+                    
+                    // Attempt connection using the interface IP
                     self.host = inter.ip
                     self.port = p
-                    completion(.success((host: inter.ip, port: p)))
+                    
+                    self.session.request("http://\(inter.ip):\(p)").validate().response { response in
+                        if response.error == nil {
+                            // Connection to interface IP successful
+                            completion(.success((host: inter.ip, port: p)))
+                        } else {
+                            // Fallback to relay IP
+                            self.host = relayIP
+                            self.port = relayPort
+                            completion(.success((host: relayIP, port: relayPort)))
+                        }
+                    }
+
                 } else if let h = connect.service?.relayIP, let p = connect.service?.relayPort {
                     self.host = h
                     self.port = p
                     completion(.success((host: h, port: p)))
+                    
                 } else if let controlHost = connect.env?.controlHost {
                     self.getServerInfo(server: controlHost, quickID: quickID) { quickIDRes in
                         switch quickIDRes {
@@ -298,6 +313,7 @@ extension SynologyClient {
             }
         }
     }
+
     
     /// Logout
     /// - Parameters:
@@ -638,7 +654,7 @@ extension SynologyClient {
     ///   - options: Upload options.
     ///   - progressHandler: The upload progress handler.
     ///   - completion: Callback Closure.
-    public func upload(fileURL: URL, filename: String, destinationFolderPath: String, createParents: Bool = true, options: UploadOptions? = nil, progressHandler: UploadRequest.ProgressHandler? = nil, completion: @escaping SynologyCompletion<UploadResponse>) {
+    public func upload(fileURL: URL, filename: String, destinationFolderPath: String, createParents: Bool = true, options: UploadOptions? = nil, progressHandler: UploadRequest.ProgressHandler? = nil, completion: @escaping SynologyCompletion<UploadResponse>) -> UploadRequest {
         struct UploadParam {
             var key: String
             var value: String
@@ -675,7 +691,7 @@ extension SynologyClient {
             formData.append(fileURL, withName: "file")
         }
         
-        session.upload(multipartFormData: multipart, to: url)
+        return session.upload(multipartFormData: multipart, to: url)
             .uploadProgress { p in
                 progressHandler?(p)
             }
@@ -709,7 +725,7 @@ extension SynologyClient {
     ///   - options: Upload options.
     ///   - progressHandler: The upload progress handler.
     ///   - completion: Callback Closure.
-    public func upload(data: Data, filename: String, destinationFolderPath: String, createParents: Bool, options: UploadOptions? = nil, progressHandler: UploadRequest.ProgressHandler? = nil, completion: @escaping SynologyCompletion<UploadResponse>) {
+    public func upload(data: Data, filename: String, destinationFolderPath: String, createParents: Bool, options: UploadOptions? = nil, progressHandler: UploadRequest.ProgressHandler? = nil, completion: @escaping SynologyCompletion<UploadResponse>) -> UploadRequest {
         
         struct UploadParam {
             var key: String
@@ -754,7 +770,7 @@ extension SynologyClient {
             formData.append(data, withName: "file", fileName: filename, mimeType: mimeType)
         }
         
-        session.upload(multipartFormData: multipart, to: url)
+        return session.upload(multipartFormData: multipart, to: url)
             .uploadProgress { p in
                 progressHandler?(p)
             }
