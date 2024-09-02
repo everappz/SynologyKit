@@ -289,52 +289,59 @@ extension SynologyClient {
         }
     }
     
-    public func updateHostPortViaQuickID(_ quickID: String, completion: @escaping (Result<(host: String, port: Int), SynologyError>) -> Void) {
+    public func update(host: String, port: Int) -> Void {
+        self.host = host
+        self.port = port
+    }
+    
+    public func getHostAndPort(_ quickID: String, completion: @escaping (Result<[NSDictionary], SynologyError>) -> Void) {
         getGlobalServerInfo(quickID: quickID) { response in
             switch response {
             case .success(let connect):
-                if let inter = connect.server?.interface?.first, let p = connect.service?.port,
-                   let relayIP = connect.service?.relayIP, let relayPort = connect.service?.relayPort {
-                    
-                    // Attempt connection using the interface IP
-                    self.host = inter.ip
-                    self.port = p
-                    
-                    self.session.request("http://\(inter.ip):\(p)").validate().response { response in
-                        if response.error == nil {
-                            // Connection to interface IP successful
-                            completion(.success((host: inter.ip, port: p)))
-                        } else {
-                            // Fallback to relay IP
-                            self.host = relayIP
-                            self.port = relayPort
-                            completion(.success((host: relayIP, port: relayPort)))
-                        }
-                    }
+                var results: [NSDictionary] = []
+                
+                // Add the interface IP and port if available
+                if let inter = connect.server?.interface?.first, let p = connect.service?.port {
+                    let dict = ["host": inter.ip as NSString, "port": NSNumber(value: p)]
+                    results.append(dict as NSDictionary)
+                }
 
-                } else if let h = connect.service?.relayIP, let p = connect.service?.relayPort {
-                    self.host = h
-                    self.port = p
-                    completion(.success((host: h, port: p)))
-                    
-                } else if let controlHost = connect.env?.controlHost {
+                // Add the relay IP and port if available
+                if let relayIP = connect.service?.relayIP, let relayPort = connect.service?.relayPort {
+                    let dict = ["host": relayIP as NSString, "port": NSNumber(value: relayPort)]
+                    results.append(dict as NSDictionary)
+                }
+
+                // If controlHost is available, check for additional IPs
+                if let controlHost = connect.env?.controlHost {
                     self.getServerInfo(server: controlHost, quickID: quickID) { quickIDRes in
                         switch quickIDRes {
                         case .success(let connectResponse):
-                            if let h = connectResponse.service?.relayIP, let p = connectResponse.service?.relayPort {
-                                self.host = h
-                                self.port = p
-                                completion(.success((host: h, port: p)))
+                            if let relayIP = connectResponse.service?.relayIP, let relayPort = connectResponse.service?.relayPort {
+                                let dict = ["host": relayIP as NSString, "port": NSNumber(value: relayPort)]
+                                results.append(dict as NSDictionary)
+                            }
+                            if !results.isEmpty {
+                                completion(.success(results))
                             } else {
                                 completion(.failure(.unknownError))
                             }
                         case .failure(let error):
-                            completion(.failure(error))
+                            if !results.isEmpty {
+                                completion(.success(results))
+                            } else {
+                                completion(.failure(.unknownError))
+                            }
                         }
                     }
                 } else {
-                    completion(.failure(.unknownError))
+                    if !results.isEmpty {
+                        completion(.success(results))
+                    } else {
+                        completion(.failure(.unknownError))
+                    }
                 }
+
             case .failure(let error):
                 completion(.failure(error))
             }
