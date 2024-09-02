@@ -300,15 +300,15 @@ extension SynologyClient {
             case .success(let connect):
                 var results: [NSDictionary] = []
                 
-                // Add the interface IP and port if available
-                if let inter = connect.server?.interface?.first, let p = connect.service?.port {
-                    let dict = ["host": inter.ip as NSString, "port": NSNumber(value: p)]
-                    results.append(dict as NSDictionary)
-                }
-
                 // Add the relay IP and port if available
                 if let relayIP = connect.service?.relayIP, let relayPort = connect.service?.relayPort {
                     let dict = ["host": relayIP as NSString, "port": NSNumber(value: relayPort)]
+                    results.append(dict as NSDictionary)
+                }
+                
+                // Add the interface IP and port if available
+                if let inter = connect.server?.interface?.first, let p = connect.service?.port {
+                    let dict = ["host": inter.ip as NSString, "port": NSNumber(value: p)]
                     results.append(dict as NSDictionary)
                 }
 
