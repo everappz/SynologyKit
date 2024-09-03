@@ -294,6 +294,14 @@ extension SynologyClient {
         self.port = port
     }
     
+    public func getCurrentPort() -> Int? {
+        return self.port;
+    }
+    
+    public func getCurrentHost() -> String? {
+        return self.host;
+    }
+    
     public func getHostAndPort(_ quickID: String, completion: @escaping (Result<[NSDictionary], SynologyError>) -> Void) {
         getGlobalServerInfo(quickID: quickID) { response in
             switch response {
@@ -321,22 +329,32 @@ extension SynologyClient {
                                 let dict = ["host": relayIP as NSString, "port": NSNumber(value: relayPort)]
                                 results.append(dict as NSDictionary)
                             }
-                            if !results.isEmpty {
-                                completion(.success(results))
+                            
+                            // Process the results array: remove duplicates and sort
+                            let processedResults = self.processAndSortHostPortResults(results)
+                                                 
+                            if !processedResults.isEmpty {
+                                completion(.success(processedResults))
                             } else {
                                 completion(.failure(.unknownError))
                             }
                         case .failure(let error):
-                            if !results.isEmpty {
-                                completion(.success(results))
+                            // Process the results array: remove duplicates and sort
+                            let processedResults = self.processAndSortHostPortResults(results)
+                            
+                            if !processedResults.isEmpty {
+                                completion(.success(processedResults))
                             } else {
                                 completion(.failure(.unknownError))
                             }
                         }
                     }
                 } else {
-                    if !results.isEmpty {
-                        completion(.success(results))
+                    // Process the results array: remove duplicates and sort
+                    let processedResults = self.processAndSortHostPortResults(results)
+                    
+                    if !processedResults.isEmpty {
+                        completion(.success(processedResults))
                     } else {
                         completion(.failure(.unknownError))
                     }
@@ -347,7 +365,24 @@ extension SynologyClient {
             }
         }
     }
+    private func processAndSortHostPortResults(_ results: [NSDictionary]) -> [NSDictionary] {
+        // Remove duplicates
+        var uniqueResults = Array(Set(results))
 
+        // Sort external IPs (not starting with "192.", "10.", "172.") to the top
+        uniqueResults.sort { (dict1, dict2) -> Bool in
+            let host1 = dict1["host"] as? String ?? ""
+            let host2 = dict2["host"] as? String ?? ""
+            
+            let isHost1Local = host1.hasPrefix("192.") || host1.hasPrefix("10.") || host1.hasPrefix("172.")
+            let isHost2Local = host2.hasPrefix("192.") || host2.hasPrefix("10.") || host2.hasPrefix("172.")
+            
+            // Return true if host1 is external and host2 is local
+            return !isHost1Local && isHost2Local
+        }
+        
+        return uniqueResults
+    }
     
     /// Logout
     /// - Parameters:
