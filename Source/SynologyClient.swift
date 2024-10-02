@@ -217,7 +217,7 @@ extension SynologyClient {
     
     private func makeInSecureSession(configuration: URLSessionConfiguration = URLSessionConfiguration.af.default) -> Alamofire.Session {
         guard let url = URL(string: baseURLString()), let host = url.host else {
-            return .default
+            return makeDefaultSession(configuration: configuration)
         }
         let trustManager = ServerTrustManager(evaluators: [host: DisabledTrustEvaluator()])
         return Alamofire.Session(configuration: configuration, serverTrustManager: trustManager)
@@ -289,9 +289,10 @@ extension SynologyClient {
         }
     }
     
-    public func update(host: String, port: Int) -> Void {
+    public func update(host: String, port: Int, enableHTTPS: Bool = false) -> Void {
         self.host = host
         self.port = port
+        self.enableHTTPS = enableHTTPS
     }
     
     public func getCurrentPort() -> Int? {
@@ -300,6 +301,10 @@ extension SynologyClient {
     
     public func getCurrentHost() -> String? {
         return self.host;
+    }
+    
+    public func getEnableHTTPS() -> Bool {
+        return self.enableHTTPS;
     }
     
     public func getHostAndPort(_ quickID: String, completion: @escaping (Result<[NSDictionary], SynologyError>) -> Void) {
